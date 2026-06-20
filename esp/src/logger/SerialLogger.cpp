@@ -1,49 +1,56 @@
 #include "SerialLogger.h"
 
-// Wskaźnik statyczny, aby funkcja logująca ArduinoLog miała dostęp do pliku
-static File _globalLogFile;
+// Wskaźnik statyczny na plik
+static fs::File _globalLogFile;
 
-SerialLogger::SerialLogger(File logFile, int baudRate) 
+SerialLogger::SerialLogger(fs::File logFile, int baudRate) 
     : _logFile(logFile), _baudRate(baudRate) {
-    _globalLogFile = logFile; // Przypisujemy plik do zmiennej statycznej
+    _globalLogFile = logFile; 
 }
 
-// Funkcja, którą wywoła ArduinoLog przy każdym logowaniu
+// Pusta funkcja wymagana, jeśli deklarujesz ją w klasie
 void SerialLogger::_logOutput(Print* output) {
-    // 1. Wypisz na Serial
-    Serial.print(output);
-    
-    // 2. Zapisz do pliku (jeśli plik jest poprawnie otwarty)
-    if (_globalLogFile) {
-        _globalLogFile.print(output);
-        _globalLogFile.flush(); // Wymuszamy zapis na karcie/pamięci flash
-    }
+    // Pozostawiamy pustą, ponieważ logujemy bezpośrednio przez metody
 }
 
 void SerialLogger::begin() {
     Serial.begin(_baudRate);
     delay(100);
 
-    // Inicjalizacja ArduinoLog
-    // LOG_LEVEL_VERBOSE oznacza, że przepuszczamy wszystkie logi
-    // false wyłącza domyślne pokazywanie poziomu logowania przez ArduinoLog, 
-    // bo i tak formatujesz to sam lub za pomocą prefixów.
-    Log.begin(LOG_LEVEL_VERBOSE, &SerialLogger::_logOutput, false);
-    
-    // Opcjonalnie: możesz ustawić automatyczny prefix z czasem w milisekundach
-    Log.setPrefix([](Print* _logOutput) {
-        _logOutput->print("[" + String(millis()) + "ms] ");
-    });
+    // Rejestrujemy ArduinoLog na obiekt Serial
+    Log.begin(LOG_LEVEL_VERBOSE, &Serial, false);
 }
 
 void SerialLogger::info(const String& message) {
-    Log.notice("[INFO] %s\n", message.c_str());
+    String formatted = "[" + String(millis()) + "ms] [INFO] " + message;
+    
+    Log.notice("%s\n", formatted.c_str());
+    
+    if (_globalLogFile) {
+        _globalLogFile.println(formatted);
+        _globalLogFile.flush();
+    }
 }
 
 void SerialLogger::warning(const String& message) {
-    Log.warning("[WARN] %s\n", message.c_str());
+    String formatted = "[" + String(millis()) + "ms] [WARN] " + message;
+    
+    Log.warning("%s\n", formatted.c_str());
+    
+    if (_globalLogFile) {
+        _globalLogFile.println(formatted);
+        _globalLogFile.flush();
+    }
 }
 
 void SerialLogger::error(const String& message) {
-    Log.errors("[ERROR] %s\n", message.c_str());
+    String formatted = "[" + String(millis()) + "ms] [ERROR] " + message;
+    
+    // Poprawione z Log.errors na Log.error
+    Log.error("%s\n", formatted.c_str());
+    
+    if (_globalLogFile) {
+        _globalLogFile.println(formatted);
+        _globalLogFile.flush();
+    }
 }
